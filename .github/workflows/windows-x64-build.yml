@@ -3,14 +3,6 @@ name: Windows x64 Build & Package
 on:
   workflow_dispatch:
     inputs:
-      build_type:
-        description: 'Build type'
-        required: true
-        default: 'Release'
-        type: choice
-        options:
-          - Debug
-          - Release
       version:
         description: 'Tag/Release version (auto-created if missing, assets updated if exists)'
         required: false
@@ -35,9 +27,6 @@ jobs:
             short: "MinGW-GCC"
             cc: "gcc"
             cxx: "g++"
-        build_type:
-          - Release
-          - Debug
 
     steps:
     - name: Checkout code
@@ -68,7 +57,7 @@ jobs:
     - name: Setup MSYS2 (for autotools)
       uses: msys2/setup-msys2@v2
       with:
-        msystem: MINGW64
+        msystem: UCRT64
         update: true
         install: >-
           autotools
@@ -94,11 +83,7 @@ jobs:
         autoconf
         
         # Configure build
-        if [ "${{ matrix.build_type }}" = "Debug" ]; then
-          ./configure CC=cl.exe CXX=cl.exe AR=lib.exe --enable-debug
-        else
-          ./configure CC=cl.exe CXX=cl.exe AR=lib.exe
-        fi
+        ./configure CC=cl.exe CXX=cl.exe AR=lib.exe
         
         # Build
         echo "Building..."
@@ -127,10 +112,10 @@ jobs:
         autoconf
         
         # Configure build
-        if [ "${{ matrix.build_type }}" = "Debug" ]; then
-          ./configure CC=gcc CXX=g++ --enable-debug EXTRA_CFLAGS=-fcommon
-        else
-          ./configure CC=gcc CXX=g++ EXTRA_CFLAGS=-fcommon
+        if ! ./configure CC=gcc CXX=g++ EXTRA_CFLAGS=-fcommon; then
+          echo "=== configure failed, printing config.log ==="
+          cat config.log
+          exit 1
         fi
         
         # Build
@@ -149,12 +134,12 @@ jobs:
     - name: Create build artifacts directory
       shell: cmd
       run: |
-        mkdir build_artifacts\${{ matrix.compiler.short }}_${{ matrix.build_type }}
+        mkdir build_artifacts\${{ matrix.compiler.short }}
         
     - name: Package binaries
       shell: cmd
       run: |
-        set BUILD_DIR=build_artifacts\${{ matrix.compiler.short }}_${{ matrix.build_type }}
+        set BUILD_DIR=build_artifacts\${{ matrix.compiler.short }}
         
         echo Packaging jemalloc binaries...
         
@@ -173,7 +158,7 @@ jobs:
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: jemalloc-windows-x64-${{ matrix.compiler.short }}-${{ matrix.build_type }}
+        name: jemalloc-windows-x64-${{ matrix.compiler.short }}
         path: build_artifacts/
         retention-days: 30
         if-no-files-found: warn
@@ -186,7 +171,7 @@ jobs:
       run: |
         $version = "$env:VERSION"
         if (-not $version) {$version = "0.0.1" }
-        $pkgName = "jemalloc-$version-windows-x64-${{ matrix.compiler.short }}-${{ matrix.build_type }}.zip"
+        $pkgName = "jemalloc-$version-windows-x64-${{ matrix.compiler.short }}.zip"
         New-Item -ItemType Directory -Force -Path "release_package" | Out-Null
         Copy-Item -Recurse -Path "build_artifacts\*" -Destination "release_package\" -ErrorAction SilentlyContinue
         Compress-Archive -Path "release_package\*" -DestinationPath $pkgName -Force
@@ -195,7 +180,7 @@ jobs:
     - name: Upload release package
       uses: actions/upload-artifact@v4
       with:
-        name: jemalloc-release-x64-${{ matrix.compiler.short }}-${{ matrix.build_type }}
+        name: jemalloc-release-x64-${{ matrix.compiler.short }}
         path: jemalloc-*.zip
         retention-days: 90
         if-no-files-found: error
