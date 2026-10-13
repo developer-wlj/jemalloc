@@ -156,14 +156,6 @@ jobs:
         
         echo Build artifacts created in %BUILD_DIR%
 
-    - name: Upload build artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: jemalloc-windows-x64-${{ matrix.compiler.short }}
-        path: build_artifacts/
-        retention-days: 30
-        if-no-files-found: warn
-
     # ============== Create Release Package ==============
     - name: Create release package (zip)
       shell: pwsh
@@ -181,7 +173,7 @@ jobs:
     - name: Upload release package
       uses: actions/upload-artifact@v4
       with:
-        name: jemalloc-release-x64-${{ matrix.compiler.short }}
+        name: jemalloc-windows-x64-${{ matrix.compiler.short }}
         path: jemalloc-*.zip
         retention-days: 90
         if-no-files-found: error
@@ -193,10 +185,15 @@ jobs:
     needs: build-windows-x64
     if: ${{ needs.build-windows-x64.result == 'success' }}
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: master
+          fetch-depth: 0
       - name: Download all packages
         uses: actions/download-artifact@v4
         with:
-          pattern: jemalloc-release-x64-*
+          pattern: jemalloc-windows-x64-*
           merge-multiple: true
           path: dist
 
@@ -219,7 +216,7 @@ jobs:
             gh release create "$TAG" \
               --target master \
               --title "jemalloc $TAG - Windows x64" \
-              --notes "Automated Windows x64 builds (MSVC / MinGW-GCC, Release / Debug)."
+              --notes "Automated Windows x64 builds (MSVC / MinGW-GCC, Release)."
             gh release upload "$TAG" dist/*.zip --clobber
           fi
 
