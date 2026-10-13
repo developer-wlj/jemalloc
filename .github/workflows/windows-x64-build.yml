@@ -65,6 +65,7 @@ jobs:
         pacboy: >-
           make:p
           binutils:p
+          gcc:p
 
     - name: Build with MSVC (x64)
       if: matrix.compiler.cc == 'cl.exe'
